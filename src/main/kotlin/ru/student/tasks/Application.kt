@@ -68,7 +68,7 @@ fun Application.module(settings: Settings, database: Database) {
     }
 
     routing {
-        get("/") { call.respond(HealthResponse("Ktor Tasks API; see README.md and requests.http")) }
+        get("/") { call.respond(HealthResponse("Ktor Tasks API; see requests.http")) }
         get("/health") {
             database.query { connection -> connection.createStatement().use { it.execute("SELECT 1") } }
             call.respond(HealthResponse("ok"))
