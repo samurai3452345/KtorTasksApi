@@ -5,6 +5,7 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.server.http.content.*
 import io.ktor.server.plugins.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.statuspages.*
@@ -68,7 +69,14 @@ fun Application.module(settings: Settings, database: Database) {
     }
 
     routing {
-        get("/") { call.respond(HealthResponse("Ktor Tasks API; see requests.http")) }
+        staticResources("/", "web") {
+            modify { _, call ->
+                call.response.header("X-Content-Type-Options", "nosniff")
+                call.response.header("Content-Security-Policy",
+                    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; " +
+                        "connect-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'")
+            }
+        }
         get("/health") {
             database.query { connection -> connection.createStatement().use { it.execute("SELECT 1") } }
             call.respond(HealthResponse("ok"))
@@ -96,6 +104,7 @@ fun Application.module(settings: Settings, database: Database) {
         authenticate("jwt") {
             get("/api/me") { call.respond(checkNotNull(users.findById(call.userId()))) }
             route("/api/tasks") {
+                get("/stats") { call.respond(tasks.stats(call.userId())) }
                 get {
                     val query = call.request.queryParameters
                     val completed = query["completed"]?.let {

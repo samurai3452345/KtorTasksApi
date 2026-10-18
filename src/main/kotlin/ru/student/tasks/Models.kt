@@ -27,6 +27,9 @@ data class TaskResponse(
 data class TaskPage(val items: List<TaskResponse>, val limit: Int, val offset: Int)
 
 @Serializable
+data class TaskStats(val total: Int, val active: Int, val completed: Int)
+
+@Serializable
 data class ApiError(val code: String, val message: String)
 
 @Serializable

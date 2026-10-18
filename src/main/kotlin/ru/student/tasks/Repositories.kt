@@ -35,6 +35,21 @@ class UserRepository(private val database: Database) {
 }
 
 class TaskRepository(private val database: Database) {
+    suspend fun stats(ownerId: Long): TaskStats = database.query { connection ->
+        connection.prepareStatement("""
+            SELECT COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE NOT completed) AS active,
+                   COUNT(*) FILTER (WHERE completed) AS completed
+            FROM tasks WHERE owner_id = ?
+        """.trimIndent()).use { statement ->
+            statement.setLong(1, ownerId)
+            statement.executeQuery().use { rows ->
+                check(rows.next())
+                TaskStats(rows.getInt("total"), rows.getInt("active"), rows.getInt("completed"))
+            }
+        }
+    }
+
     suspend fun create(ownerId: Long, request: CreateTaskRequest): TaskResponse = database.query { connection ->
         connection.prepareStatement("INSERT INTO tasks(owner_id, title, description) VALUES (?, ?, ?) RETURNING *").use { statement ->
             statement.setLong(1, ownerId)

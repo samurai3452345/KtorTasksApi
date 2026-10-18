@@ -91,8 +91,15 @@ class ApiTest {
         assertFalse(created.json()["completed"]!!.jsonPrimitive.boolean)
         assertEquals(HttpStatusCode.OK, client.get("/api/tasks/$id") { bearerAuth(token) }.status)
         client.create(token, "Another task")
+        val initialStats = client.get("/api/tasks/stats") { bearerAuth(token) }.json()
+        assertEquals(2, initialStats["total"]!!.jsonPrimitive.int)
+        assertEquals(2, initialStats["active"]!!.jsonPrimitive.int)
+        assertEquals(0, initialStats["completed"]!!.jsonPrimitive.int)
         val complete = client.post("/api/tasks/$id/complete") { bearerAuth(token) }
         assertTrue(complete.json()["completed"]!!.jsonPrimitive.boolean)
+        val completedStats = client.get("/api/tasks/stats") { bearerAuth(token) }.json()
+        assertEquals(1, completedStats["active"]!!.jsonPrimitive.int)
+        assertEquals(1, completedStats["completed"]!!.jsonPrimitive.int)
         val filtered = client.get("/api/tasks?completed=true&q=kOtLiN&limit=1&offset=0") { bearerAuth(token) }
         assertEquals(HttpStatusCode.OK, filtered.status)
         assertEquals(id, filtered.json()["items"]!!.jsonArray.single().jsonObject["id"]!!.jsonPrimitive.long)
@@ -103,6 +110,7 @@ class ApiTest {
         assertEquals("", deleted.bodyAsText())
         assertEquals(HttpStatusCode.NotFound, client.get("/api/tasks/$id") { bearerAuth(token) }.status)
         assertEquals(HttpStatusCode.NotFound, client.delete("/api/tasks/$id") { bearerAuth(token) }.status)
+        assertEquals(1, client.get("/api/tasks/stats") { bearerAuth(token) }.json()["total"]!!.jsonPrimitive.int)
     }
 
     @Test fun `users cannot read complete delete or list someone else's tasks`() = apiTest {
@@ -115,6 +123,8 @@ class ApiTest {
         assertEquals(HttpStatusCode.NotFound, client.post("/api/tasks/$id/complete") { bearerAuth(bob) }.status)
         assertEquals(HttpStatusCode.NotFound, client.delete("/api/tasks/$id") { bearerAuth(bob) }.status)
         assertTrue(client.get("/api/tasks") { bearerAuth(bob) }.json()["items"]!!.jsonArray.isEmpty())
+        assertEquals(0, client.get("/api/tasks/stats") { bearerAuth(bob) }.json()["total"]!!.jsonPrimitive.int)
+        assertEquals(1, client.get("/api/tasks/stats") { bearerAuth(alice) }.json()["total"]!!.jsonPrimitive.int)
         assertEquals(HttpStatusCode.OK, client.get("/api/tasks/$id") { bearerAuth(alice) }.status)
     }
 
@@ -178,6 +188,22 @@ class ApiTest {
         val missing = client.get("/unknown")
         assertEquals(HttpStatusCode.NotFound, missing.status)
         assertEquals("not_found", missing.json()["code"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun `frontend resources are public while API and statistics require authentication`() = apiTest {
+        val index = client.get("/")
+        assertEquals(HttpStatusCode.OK, index.status)
+        assertEquals(ContentType.Text.Html, index.contentType()?.withoutParameters())
+        assertTrue(index.bodyAsText().contains("id=\"auth-form\""))
+        assertTrue(index.headers["Content-Security-Policy"]!!.contains("script-src 'self'"))
+        for (path in listOf("/styles.css", "/app.js", "/favicon.svg")) {
+            val asset = client.get(path)
+            assertEquals(HttpStatusCode.OK, asset.status, path)
+            assertEquals("nosniff", asset.headers["X-Content-Type-Options"])
+        }
+        assertEquals(HttpStatusCode.NotFound, client.get("/missing.js").status)
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/api/tasks/stats").status)
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/api/me").status)
     }
 
     private fun signedToken(expired: Boolean = false, secret: String = this.secret): String = JWT.create()
