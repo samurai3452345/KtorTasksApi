@@ -1,0 +1,11 @@
+target/
+out/
+.idea/
+*.iml
+.local/
+.maven/
+.env
+*.log
+http-client.private.env.json
+requests.private.http
+!src/main/resources/logback.xml

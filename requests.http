@@ -1,0 +1,58 @@
+@baseUrl = http://localhost:8090
+
+### 1. Проверка сервера и PostgreSQL
+GET {{baseUrl}}/health
+
+### 2. Регистрация (второй запуск с тем же логином вернет 409)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{"username":"student","password":"StrongPass123!"}
+
+### 3. Вход. IDEA Ultimate автоматически сохранит JWT для следующих запросов
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"username":"student","password":"StrongPass123!"}
+
+> {% client.global.set("token", response.body.token); %}
+
+### 4. Мой профиль
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{token}}
+
+### 5. Создание задачи. ID сохраняется для запросов ниже
+POST {{baseUrl}}/api/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"title":"Изучить Kotlin","description":"Ktor, PostgreSQL и JWT-аутентификация"}
+
+> {% client.global.set("taskId", response.body.id); %}
+
+### 6. Query-параметры: поиск, статус, пагинация
+GET {{baseUrl}}/api/tasks?q=Kotlin&completed=false&limit=10&offset=0
+Authorization: Bearer {{token}}
+
+### 7. Path-параметр: ID задачи
+GET {{baseUrl}}/api/tasks/{{taskId}}
+Authorization: Bearer {{token}}
+
+### 8. Выполнение задачи
+POST {{baseUrl}}/api/tasks/{{taskId}}/complete
+Authorization: Bearer {{token}}
+
+### 9. Удаление (204, без тела)
+DELETE {{baseUrl}}/api/tasks/{{taskId}}
+Authorization: Bearer {{token}}
+
+### 10. Удаленная задача (404)
+GET {{baseUrl}}/api/tasks/{{taskId}}
+Authorization: Bearer {{token}}
+
+### 11. Без токена (401)
+GET {{baseUrl}}/api/tasks
+
+### 12. Неверный query-параметр (400)
+GET {{baseUrl}}/api/tasks?limit=-1
+Authorization: Bearer {{token}}

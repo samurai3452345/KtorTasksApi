@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Ktor Tasks API" type="JetRunConfigurationType">
+    <option name="MAIN_CLASS_NAME" value="ru.student.tasks.MainKt" />
+    <module name="ktor-tasks-api" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2"><option name="Make" enabled="true" /></method>
+  </configuration>
+</component>
