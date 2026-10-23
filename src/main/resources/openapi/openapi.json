@@ -1,0 +1,1265 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Фокус — Ktor Tasks API",
+    "version": "1.1.0",
+    "description": "КТ3: документация и тестирование API из КТ2. JWT-аутентификация и личные задачи в PostgreSQL. Все ответы имеют X-Request-ID (UUID, сгенерированный сервером). Ошибки имеют JSON-формат {code,message}. Для неизвестного URL возвращается 404, для неподдерживаемого метода существующего маршрута — 405 с code=method_not_allowed. Внутренние ошибки — 500, ошибки PostgreSQL — 503; технические детали доступны только в серверном журнале."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Текущий Ktor-сервер (по умолчанию http://localhost:8090)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Регистрация и выдача JWT"
+    },
+    {
+      "name": "Profile",
+      "description": "Личный профиль"
+    },
+    {
+      "name": "Tasks",
+      "description": "Только задачи аутентифицированного пользователя"
+    },
+    {
+      "name": "System",
+      "description": "Проверка доступности"
+    },
+    {
+      "name": "Web",
+      "description": "Публичный веб-интерфейс"
+    },
+    {
+      "name": "Documentation",
+      "description": "Swagger UI, OpenAPI и их локальные ресурсы"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Web"
+        ],
+        "summary": "Открыть веб-интерфейс «Фокус»",
+        "operationId": "getFrontend",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Открыть веб-интерфейс «Фокус»",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/styles.css": {
+      "get": {
+        "tags": [
+          "Web"
+        ],
+        "summary": "CSS веб-интерфейса",
+        "operationId": "getFrontendStyles",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "CSS веб-интерфейса",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "text/css": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app.js": {
+      "get": {
+        "tags": [
+          "Web"
+        ],
+        "summary": "JavaScript веб-интерфейса",
+        "operationId": "getFrontendScript",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "JavaScript веб-интерфейса",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "text/javascript": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/favicon.svg": {
+      "get": {
+        "tags": [
+          "Web"
+        ],
+        "summary": "Значок веб-интерфейса",
+        "operationId": "getFrontendIcon",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Значок веб-интерфейса",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "operationId": "getHealth",
+        "summary": "Проверка сервера и подключения к PostgreSQL",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Сервер и БД доступны",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "register",
+        "summary": "Зарегистрировать пользователя",
+        "description": "Логин обрезается по краям и приводится к нижнему регистру. Пароль сохраняется только как PBKDF2-хеш с солью.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Пользователь создан",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                },
+                "example": {
+                  "id": 1,
+                  "username": "student"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "login",
+        "summary": "Войти и получить JWT",
+        "description": "Токен действует 3600 секунд. Скопируйте значение token в кнопку Authorize без префикса Bearer.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JWT для доступа к личным задачам",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/InvalidCredentials"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "operationId": "getCurrentUser",
+        "summary": "Получить профиль текущего пользователя",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ID и логин, без пароля и хеша",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "operationId": "listTasks",
+        "summary": "Список своих задач с поиском и пагинацией",
+        "description": "Поиск q — подстрока в названии или описании без учёта регистра. По умолчанию показываются все статусы. Порядок: ID по убыванию. Чужие задачи не попадают в список.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Поисковая строка; пробелы по краям удаляются",
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": ""
+            },
+            "example": "kotlin"
+          },
+          {
+            "name": "completed",
+            "in": "query",
+            "description": "Строго true или false; отсутствие означает все статусы",
+            "schema": {
+              "type": "boolean"
+            },
+            "example": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Размер страницы",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Количество пропускаемых записей",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница задач",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "operationId": "createTask",
+        "summary": "Создать личную задачу",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Задача создана",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "Location": {
+                "description": "Относительный URL созданной задачи",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "/api/tasks/1"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/api/tasks/stats": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "operationId": "getTaskStats",
+        "summary": "Количество всех, активных и выполненных задач",
+        "description": "Учитываются все задачи текущего пользователя, независимо от пагинации и поиска.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Счётчики текущего пользователя",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStats"
+                },
+                "example": {
+                  "total": 5,
+                  "active": 3,
+                  "completed": 2
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TaskId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "operationId": "getTask",
+        "summary": "Получить свою задачу по ID",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Задача найдена",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/TaskNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tasks"
+        ],
+        "operationId": "deleteTask",
+        "summary": "Удалить свою задачу",
+        "description": "После успешного удаления тело ответа отсутствует. Повторное удаление возвращает 404.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Задача удалена; тело отсутствует",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/TaskNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}/complete": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TaskId"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "operationId": "completeTask",
+        "summary": "Пометить свою задачу выполненной",
+        "description": "Тело запроса не требуется. Повторный вызов возвращает выполненную задачу с кодом 200.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Выполненная задача",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/TaskNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/DatabaseUnavailable"
+          }
+        }
+      }
+    },
+    "/swagger": {
+      "get": {
+        "tags": [
+          "Documentation"
+        ],
+        "operationId": "getSwaggerUI",
+        "summary": "Интерактивная документация Swagger UI",
+        "parameters": [
+          {
+            "name": "docExpansion",
+            "in": "query",
+            "description": "Раскрытие операций Swagger UI; другие значения отклоняются",
+            "schema": { "type": "string", "enum": ["none", "list", "full"] }
+          }
+        ],
+        "description": "JS и CSS загружаются с этого же сервера. Для проверки защищённых маршрутов получите JWT и нажмите Authorize.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Swagger UI",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": [
+          "Documentation"
+        ],
+        "operationId": "getOpenApi",
+        "summary": "Скачать спецификацию OpenAPI 3.0.3",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Полная спецификация",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenApiDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swagger/openapi.json": {
+      "get": {
+        "tags": [
+          "Documentation"
+        ],
+        "operationId": "getSwaggerOpenApi",
+        "summary": "Спецификация, используемая Swagger UI",
+        "description": "Содержимое совпадает с /openapi.json.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Полная спецификация",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenApiDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swagger-assets/swagger-ui@5.31.0/{asset}": {
+      "get": {
+        "tags": [
+          "Documentation"
+        ],
+        "operationId": "getSwaggerAsset",
+        "summary": "Локальные ресурсы Swagger UI",
+        "security": [],
+        "parameters": [
+          {
+            "name": "asset",
+            "in": "path",
+            "required": true,
+            "description": "Файл из WebJar Swagger UI: swagger-ui.css, swagger-ui-bundle.js, swagger-ui-standalone-preset.js или favicon-32x32.png",
+            "schema": {
+              "type": "string"
+            },
+            "example": "swagger-ui.css"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSS, JavaScript или изображение Swagger UI",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "text/css": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/javascript": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT из POST /api/auth/login. В Swagger Authorize вставьте только значение token."
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "Уникальный UUID запроса, созданный сервером. Используйте для поиска запроса в журнале http.access. Значение заголовка клиента не используется.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "parameters": {
+      "TaskId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Положительный Long: ID задачи текущего пользователя",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "example": 1
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Некорректный JSON, типы или значения полей/query/path. code: bad_request либо validation_error.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "validation_error",
+              "message": "id должен быть положительным целым числом"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "JWT отсутствует, повреждён, просрочен, подписан другим ключом или ссылается на отсутствующего пользователя.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          },
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            },
+            "example": "Bearer realm=\"ktor-tasks-api\""
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "unauthorized",
+              "message": "Требуется действующий Bearer JWT"
+            }
+          }
+        }
+      },
+      "InvalidCredentials": {
+        "description": "Неверный логин или пароль. Ответ одинаков для неизвестного логина и неверного пароля.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "invalid_credentials",
+              "message": "Неверный логин или пароль"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Логин уже зарегистрирован (без учёта регистра).",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "username_taken",
+              "message": "Этот логин уже занят"
+            }
+          }
+        }
+      },
+      "TaskNotFound": {
+        "description": "Задача отсутствует либо принадлежит другому пользователю.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "task_not_found",
+              "message": "Задача не найдена"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Неизвестный маршрут или отсутствующий статический ресурс.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "not_found",
+              "message": "Маршрут не найден"
+            }
+          }
+        }
+      },
+      "MethodNotAllowed": {
+        "description": "Метод не поддерживается существующим маршрутом.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "method_not_allowed",
+              "message": "Метод не поддерживается этим маршрутом"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "Для JSON-тела нужен Content-Type: application/json.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "unsupported_media_type",
+              "message": "Используйте Content-Type: application/json"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Неожиданная ошибка; стек и внутренние сообщения не включаются в ответ.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "internal_error",
+              "message": "Внутренняя ошибка сервера"
+            }
+          }
+        }
+      },
+      "DatabaseUnavailable": {
+        "description": "Операция PostgreSQL не выполнена; внутренние SQL-данные скрыты.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "code": "database_unavailable",
+              "message": "База данных временно недоступна"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Credentials": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^\\s*[A-Za-z0-9_]{3,32}\\s*$",
+            "description": "После удаления пробелов по краям: 3–32 латинские буквы, цифры или _. Регистр не учитывается.",
+            "example": "student"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 8,
+            "maxLength": 128,
+            "writeOnly": true,
+            "example": "StrongPass123!"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "example": 1
+          },
+          "username": {
+            "type": "string",
+            "example": "student"
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "expiresIn",
+          "tokenType"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Подписанный HS256 JWT"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int64",
+            "default": 3600,
+            "example": 3600
+          },
+          "tokenType": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ],
+            "example": "Bearer"
+          }
+        }
+      },
+      "CreateTaskRequest": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "После trim: 1–200 символов. Пустое или состоящее из пробелов название отклоняется.",
+            "example": "Подготовить КТ3"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "default": "",
+            "example": "Проверить Swagger UI и запустить тесты"
+          }
+        }
+      },
+      "TaskResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "completed",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Подготовить КТ3"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "example": "Проверить Swagger UI и запустить тесты"
+          },
+          "completed": {
+            "type": "boolean",
+            "example": false
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-23T10:00:00Z"
+          }
+        }
+      },
+      "TaskPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "limit",
+          "offset"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskResponse"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "example": 20
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 0
+          }
+        }
+      },
+      "TaskStats": {
+        "type": "object",
+        "required": [
+          "total",
+          "active",
+          "completed"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completed": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "validation_error"
+          },
+          "message": {
+            "type": "string",
+            "example": "id должен быть положительным целым числом"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          }
+        }
+      },
+      "OpenApiDocument": {
+        "type": "object",
+        "description": "Документ OpenAPI 3.0.3",
+        "additionalProperties": true
+      }
+    }
+  }
+}

@@ -8,16 +8,11 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.http.content.*
 import io.ktor.server.plugins.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
-import java.sql.SQLException
 import java.util.Locale
-
-class ApiException(val status: HttpStatusCode, val code: String, message: String) : RuntimeException(message)
 
 fun Application.module(settings: Settings, database: Database) {
     val users = UserRepository(database)
@@ -28,30 +23,7 @@ fun Application.module(settings: Settings, database: Database) {
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").joinToString("$")
 
     install(ContentNegotiation) { json(Json { encodeDefaults = true }) }
-    install(StatusPages) {
-        exception<ApiException> { call, cause -> call.respond(cause.status, ApiError(cause.code, cause.message!!)) }
-        exception<BadRequestException> { call, _ ->
-            call.respond(HttpStatusCode.BadRequest, ApiError("bad_request", "Проверьте JSON и типы полей запроса"))
-        }
-        exception<UnsupportedMediaTypeException> { call, _ ->
-            call.respond(HttpStatusCode.UnsupportedMediaType, ApiError("unsupported_media_type", "Используйте Content-Type: application/json"))
-        }
-        exception<SQLException> { call, cause ->
-            call.application.log.error("Database operation failed", cause)
-            call.respond(HttpStatusCode.ServiceUnavailable, ApiError("database_unavailable", "База данных временно недоступна"))
-        }
-        exception<Throwable> { call, cause ->
-            if (cause is CancellationException) throw cause
-            call.application.log.error("Unexpected request error", cause)
-            call.respond(HttpStatusCode.InternalServerError, ApiError("internal_error", "Внутренняя ошибка сервера"))
-        }
-        status(HttpStatusCode.NotFound) { call, status ->
-            call.respond(status, ApiError("not_found", "Маршрут не найден"))
-        }
-        status(HttpStatusCode.MethodNotAllowed) { call, status ->
-            call.respond(status, ApiError("method_not_allowed", "Метод не поддерживается этим маршрутом"))
-        }
-    }
+    configureHttpPlugins()
     install(Authentication) {
         jwt("jwt") {
             realm = "ktor-tasks-api"
@@ -69,6 +41,7 @@ fun Application.module(settings: Settings, database: Database) {
     }
 
     routing {
+        apiDocumentation()
         staticResources("/", "web") {
             modify { _, call ->
                 call.response.header("X-Content-Type-Options", "nosniff")

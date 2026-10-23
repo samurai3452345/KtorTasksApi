@@ -206,6 +206,30 @@ class ApiTest {
         assertEquals(HttpStatusCode.Unauthorized, client.get("/api/me").status)
     }
 
+    @Test fun `closed database pool produces a safe JSON 503 from the real health endpoint`() = apiTest { database ->
+        database.close()
+        val response = client.get("/health")
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        assertEquals("database_unavailable", response.json()["code"]!!.jsonPrimitive.content)
+        assertFalse(response.bodyAsText().contains("Hikari"))
+        assertFalse(response.bodyAsText().contains("jdbc:"))
+        assertNotNull(response.headers["X-Request-ID"])
+    }
+
+    @Test fun `task completion is idempotent and its JSON 404 is preserved`() = apiTest {
+        client.register()
+        val token = client.login()
+        val id = client.create(token).json()["id"]!!.jsonPrimitive.long
+        repeat(2) {
+            val response = client.post("/api/tasks/$id/complete") { bearerAuth(token) }
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertTrue(response.json()["completed"]!!.jsonPrimitive.boolean)
+        }
+        val missing = client.get("/api/tasks/9223372036854775807") { bearerAuth(token) }
+        assertEquals(HttpStatusCode.NotFound, missing.status)
+        assertEquals("task_not_found", missing.json()["code"]!!.jsonPrimitive.content)
+    }
+
     private fun signedToken(expired: Boolean = false, secret: String = this.secret): String = JWT.create()
         .withSubject("1").withIssuer("ktor-tasks-api").withAudience("ktor-tasks-client")
         .withExpiresAt(Date.from(Instant.now().plusSeconds(if (expired) -60 else 3600)))

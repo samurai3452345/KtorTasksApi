@@ -1,5 +1,11 @@
 @baseUrl = http://localhost:8090
 
+### КТ3: Swagger UI (открыть этот адрес в браузере)
+GET {{baseUrl}}/swagger
+
+### КТ3: полная спецификация OpenAPI
+GET {{baseUrl}}/openapi.json
+
 ### 1. Проверка сервера и PostgreSQL
 GET {{baseUrl}}/health
 
@@ -19,6 +25,10 @@ Content-Type: application/json
 
 ### 4. Мой профиль
 GET {{baseUrl}}/api/me
+Authorization: Bearer {{token}}
+
+### КТ3: статистика личных задач
+GET {{baseUrl}}/api/tasks/stats
 Authorization: Bearer {{token}}
 
 ### 5. Создание задачи. ID сохраняется для запросов ниже
@@ -56,3 +66,16 @@ GET {{baseUrl}}/api/tasks
 ### 12. Неверный query-параметр (400)
 GET {{baseUrl}}/api/tasks?limit=-1
 Authorization: Bearer {{token}}
+
+### КТ3: неизвестный маршрут (404, JSON + X-Request-ID)
+GET {{baseUrl}}/unknown-route
+
+### КТ3: неподдерживаемый метод (405, JSON)
+PUT {{baseUrl}}/health
+
+### КТ3: некорректный JSON (400)
+POST {{baseUrl}}/api/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"title":
